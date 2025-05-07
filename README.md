@@ -1,3 +1,12 @@
+# Artefacts Click
+
+This is a simple fork of the [click package](https://github.com/pallets/click) that supports deeper localisation. Artefacts tools are using this fork while its features get tentatively added to the click main line (through [this PR](https://github.com/pallets/click/pull/2890)).
+
+This fork is completely submitted to the click original project. All changes here are for localisation---no feature change. Please note this fork resets versioning to avoid confusion.
+
+The present version 0.1.0 is based off `click==8.2.0` and will be kept in sync. Please get in touch through issues if we're getting late at syncing!
+
+
 # $ click_
 
 Click is a Python package for creating beautiful command line interfaces

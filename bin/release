@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -e
+
+pip install build twine > /dev/null
+
+version=$1
+production=${2:-test}
+
+if [[ -n "$version" ]]
+then
+  echo "Preparing publication of version $version to $production PyPi"
+else
+  echo "Usage: release <version> [test|production]" >&2
+  exit 1
+fi
+
+if [[ -d venv ]]
+then
+  source venv/bin/activate
+fi
+
+git restore src/click/__init__.py
+echo >> src/click/__init__.py
+echo "__version__ = \"$version\"" >> src/click/__init__.py
+
+python -m build
+
+if [[ "$production" = "production" ]]
+then
+  options=
+else
+  options="-r testpypi"
+fi
+
+twine upload $options dist/artefacts_click-${version}-py3-none-any.whl
+
+git restore src/click/__init__.py > /dev/null
