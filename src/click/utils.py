@@ -1,11 +1,3 @@
-# Ask Ruff to accept the format method on strings, and not let pyupgrade
-# always force f-strings. The latter are unfortunately not supported yet
-# by Babel, a localisation library.
-#
-# Note: Using `# noqa: UP032` on lines has not worked, so a file
-#       setting.
-# ruff: noqa: UP032
-
 from __future__ import annotations
 
 import collections.abc as cabc
@@ -286,7 +278,7 @@ def echo(
 
     # Convert non bytes/text into the native string type.
     if message is not None and not isinstance(message, (str, bytes, bytearray)):
-        out: str | bytes | None = str(message)
+        out: str | bytes | bytearray | None = str(message)
     else:
         out = message
 
@@ -339,7 +331,7 @@ def get_binary_stream(name: t.Literal["stdin", "stdout", "stderr"]) -> t.BinaryI
     """
     opener = binary_streams.get(name)
     if opener is None:
-        raise TypeError(_("Unknown standard stream '{name}'").format(name=name))  # noqa: UP032
+        raise TypeError(_("Unknown standard stream '{name}'").format(name=name))
     return opener()
 
 
@@ -360,7 +352,7 @@ def get_text_stream(
     """
     opener = text_streams.get(name)
     if opener is None:
-        raise TypeError(_("Unknown standard stream '{name}'").format(name=name))  # noqa: UP032
+        raise TypeError(_("Unknown standard stream '{name}'").format(name=name))
     return opener(encoding, errors)
 
 

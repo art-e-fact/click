@@ -1,11 +1,3 @@
-# Ask Ruff to accept the format method on strings, and not let pyupgrade
-# always force f-strings. The latter are unfortunately not supported yet
-# by Babel, a localisation library.
-#
-# Note: Using `# noqa: UP032` on lines has not worked, so a file
-#       setting.
-# ruff: noqa: UP032
-
 from __future__ import annotations
 
 import collections.abc as cabc
@@ -380,7 +372,7 @@ class Choice(ParamType, t.Generic[ParamTypeValue]):
         ).format(value=value, choice=choices_str, choices=choices_str)
 
     def __repr__(self) -> str:
-        return _("Choice({choices})").format(choices=list(self.choices))  # noqa: UP032
+        return _("Choice({choices})").format(choices=list(self.choices))
 
     def shell_complete(
         self, ctx: Context, param: Parameter, incomplete: str
@@ -669,23 +661,67 @@ class FloatRange(_NumberRangeBase, FloatParamType):
 class BoolParamType(ParamType):
     name = "boolean"
 
+    bool_states: dict[str, bool] = {
+        "1": True,
+        "0": False,
+        "yes": True,
+        "no": False,
+        "true": True,
+        "false": False,
+        "on": True,
+        "off": False,
+        "t": True,
+        "f": False,
+        "y": True,
+        "n": False,
+        # Absence of value is considered False.
+        "": False,
+    }
+    """A mapping of string values to boolean states.
+
+    Mapping is inspired by :py:attr:`configparser.ConfigParser.BOOLEAN_STATES`
+    and extends it.
+
+    .. caution::
+        String values are lower-cased, as the ``str_to_bool`` comparison function
+        below is case-insensitive.
+
+    .. warning::
+        The mapping is not exhaustive, and does not cover all possible boolean strings
+        representations. It will remains as it is to avoid endless bikeshedding.
+
+        Future work my be considered to make this mapping user-configurable from public
+        API.
+    """
+
+    @staticmethod
+    def str_to_bool(value: str | bool) -> bool | None:
+        """Convert a string to a boolean value.
+
+        If the value is already a boolean, it is returned as-is. If the value is a
+        string, it is stripped of whitespaces and lower-cased, then checked against
+        the known boolean states pre-defined in the `BoolParamType.bool_states` mapping
+        above.
+
+        Returns `None` if the value does not match any known boolean state.
+        """
+        if isinstance(value, bool):
+            return value
+        return BoolParamType.bool_states.get(value.strip().lower())
+
     def convert(
         self, value: t.Any, param: Parameter | None, ctx: Context | None
-    ) -> t.Any:
-        if value in {False, True}:
-            return bool(value)
-
-        norm = value.strip().lower()
-
-        if norm in {"1", "true", "t", "yes", "y", "on"}:
-            return True
-
-        if norm in {"0", "false", "f", "no", "n", "off"}:
-            return False
-
-        self.fail(
-            _("{value!r} is not a valid boolean.").format(value=value), param, ctx
-        )
+    ) -> bool:
+        normalized = self.str_to_bool(value)
+        if normalized is None:
+            self.fail(
+                _(
+                    "{value!r} is not a valid boolean. Recognized values: {states}"
+                ).format(value=value, states=", ".join(sorted(self.bool_states))),
+                param,
+                ctx,
+            )
+        return normalized
 
     def __repr__(self) -> str:
         return "BOOL"
@@ -1128,9 +1164,7 @@ def convert_type(ty: t.Any | None, default: t.Any | None = None) -> ParamType:
         try:
             if issubclass(ty, ParamType):
                 raise AssertionError(
-                    _(
-                        "Attempted to use an uninstantiated parameter type ({type})."
-                    ).format(type=ty)  # noqa: UP032
+                    f"Attempted to use an uninstantiated parameter type ({ty})."
                 )
         except TypeError:
             # ty is an instance (correct), so issubclass fails.
