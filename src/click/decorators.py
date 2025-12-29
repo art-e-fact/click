@@ -123,7 +123,7 @@ def pass_meta_key(
     if doc_description is None:
         doc_description = f"the {key!r} key from :attr:`click.Context.meta`"
 
-    decorator.__doc__ = _(
+    decorator.__doc__ = (
         f"Decorator that passes {doc_description} as the first argument"
         " to the decorated function."
     )
