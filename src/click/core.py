@@ -1,11 +1,3 @@
-# Ask Ruff to accept the format method on strings, and not let pyupgrade
-# always force f-strings. The latter are unfortunately not supported yet
-# by Babel, a localisation library.
-#
-# Note: Using `# noqa: UP032` on lines has not worked, so a file
-#       setting.
-# ruff: noqa: UP032
-
 from __future__ import annotations
 
 import collections.abc as cabc
@@ -86,14 +78,14 @@ def _check_nested_chain(
 
     if register:
         message = _(
-            "It is not possible to add the group {cmd_name!r} to another"
-            " group {base_cmd_name!r} that is in chain mode."
-        ).format(cmd_name=cmd_name, base_cmd_name=base_command.name)  # noqa: UP032
+            f"It is not possible to add the group {cmd_name!r} to another"
+            f" group {base_command.name!r} that is in chain mode."
+        )
     else:
         message = _(
-            "Found the group {cmd_name!r} as subcommand to another group "
-            " {base_cmd_name!r} that is in chain mode. This is not supported."
-        ).format(cmd_name=cmd_name, base_cmd_name=base_command.name)  # noqa: UP032
+            f"Found the group {cmd_name!r} as subcommand to another group "
+            f" {base_command.name!r} that is in chain mode. This is not supported."
+        )
 
     raise RuntimeError(message)
 
@@ -1117,7 +1109,7 @@ class Command:
 
         if self.deprecated:
             deprecated_message = (
-                _("(DEPRECATED: {target})".format(target=self.deprecated))
+                _(f"(DEPRECATED: {self.deprecated})")
                 if isinstance(self.deprecated, str)
                 else _("(DEPRECATED)")
             )
@@ -1154,7 +1146,7 @@ class Command:
 
         if self.deprecated:
             deprecated_message = (
-                _("(DEPRECATED: {target})".format(target=self.deprecated))
+                _(f"(DEPRECATED: {self.deprecated})")
                 if isinstance(self.deprecated, str)
                 else _("(DEPRECATED)")
             )
@@ -2763,7 +2755,7 @@ class Option(Parameter):
 
         if deprecated:
             deprecated_message = (
-                _("(DEPRECATED: {target})".format(target=deprecated))
+                _(f"(DEPRECATED: {deprecated})")
                 if isinstance(deprecated, str)
                 else _("(DEPRECATED)")
             )
@@ -2919,7 +2911,7 @@ class Option(Parameter):
         for decl in decls:
             if decl.isidentifier():
                 if name is not None:
-                    raise TypeError(_("Name '{name}' defined twice").format(name=name))  # noqa: UP032
+                    raise TypeError(_("Name '{name}' defined twice").format(name=name))
                 name = decl
             else:
                 split_char = ";" if decl[:1] == "/" else "/"

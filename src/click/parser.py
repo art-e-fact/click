@@ -18,14 +18,6 @@ Copyright 2001-2006 Gregory P. Ward. All rights reserved.
 Copyright 2002-2006 Python Software Foundation. All rights reserved.
 """
 
-# Ask Ruff to accept the format method on strings, and not let pyupgrade
-# always force f-strings. The latter are unfortunately not supported yet
-# by Babel, a localisation library.
-#
-# Note: Using `# noqa: UP032` on lines has not worked, so a file
-#       setting.
-# ruff: noqa: UP032
-
 # This code uses parts of optparse written by Gregory P. Ward and
 # maintained by the Python Software Foundation.
 # Copyright 2001-2006 Gregory P. Ward
@@ -153,7 +145,7 @@ class _Option:
                     _("Invalid start character for option ({option})").format(
                         option=opt
                     )
-                )  # noqa: UP032
+                )
             self.prefixes.add(prefix[0])
             if len(prefix) == 1 and len(value) == 1:
                 self._short_opts.append(opt)
@@ -186,7 +178,7 @@ class _Option:
         elif self.action == "count":
             state.opts[self.dest] = state.opts.get(self.dest, 0) + 1  # type: ignore
         else:
-            raise ValueError(_("unknown action '{action}'").format(action=self.action))  # noqa: UP032
+            raise ValueError(f"unknown action '{self.action}'")
         state.order.append(self.obj)
 
 
@@ -523,10 +515,8 @@ def __getattr__(name: str) -> object:
         "ParsingState",
     }:
         warnings.warn(
-            _(
-                "'parser.{name}' is deprecated and will be removed in Click 9.0."
-                " The old parser is available in 'optparse'."
-            ).format(name=name),  # noqa: UP032
+            f"'parser.{name}' is deprecated and will be removed in Click 9.0."
+            " The old parser is available in 'optparse'.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -536,10 +526,8 @@ def __getattr__(name: str) -> object:
         from .shell_completion import split_arg_string
 
         warnings.warn(
-            _(
-                "Importing 'parser.split_arg_string' is deprecated, it will only be"
-                " available in 'shell_completion' in Click 9.0."
-            ),
+            "Importing 'parser.split_arg_string' is deprecated, it will only be"
+            " available in 'shell_completion' in Click 9.0.",
             DeprecationWarning,
             stacklevel=2,
         )
