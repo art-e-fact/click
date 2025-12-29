@@ -3,10 +3,9 @@
 Welcome to Click
 ================
 
-.. image:: _static/click-logo.png
+.. image:: _static/click-name.svg
     :align: center
-    :scale: 50%
-    :target: https://palletsprojects.com/p/click/
+    :height: 200px
 
 Click is a Python package for creating beautiful command line interfaces
 in a composable way with as little code as necessary.  It's the "Command
@@ -58,10 +57,15 @@ You can get the library directly from PyPI::
     pip install click
 
 Documentation
--------------
+==============
+
+.. toctree::
+   :maxdepth: 2
+
+   faqs
 
 Tutorials
-^^^^^^^^^^^^^
+------------
 .. toctree::
    :maxdepth: 1
 
@@ -69,22 +73,26 @@ Tutorials
    virtualenv
 
 How to Guides
-^^^^^^^^^^^^^
+---------------
 .. toctree::
    :maxdepth: 1
 
    entry-points
    setuptools
+   upgrade-guides
+   support-multiple-versions
 
 Conceptual Guides
-^^^^^^^^^^^^^^^^^^^
+-------------------
 .. toctree::
    :maxdepth: 1
 
+   design-opinions
    why
+   click-concepts
 
 General Reference
-^^^^^^^^^^^^^^^^^^^
+--------------------
 
 .. toctree::
    :maxdepth: 1
@@ -99,17 +107,19 @@ General Reference
    documentation
    prompts
    handling-files
-   complex
    advanced
+   complex
+   extending-click
    testing
    utils
    shell-completion
    exceptions
+   command-line-reference
    unicode-support
    wincmd
 
 API Reference
-^^^^^^^^^^^^^^^
+-------------------
 
 .. toctree::
    :maxdepth: 2
@@ -117,9 +127,9 @@ API Reference
    api
 
 About Project
--------------------
+===============
 
-* This documentation is structured according to `Diataxis <https://diataxis.fr/>`_
+* This documentation is structured according to `Diataxis <https://diataxis.fr/>`_ and written with `MyST <https://myst-parser.readthedocs.io/en/latest/>`_
 
 * `Version Policy <https://palletsprojects.com/versions>`_
 

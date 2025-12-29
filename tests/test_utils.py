@@ -5,6 +5,8 @@ import subprocess
 import sys
 from collections import namedtuple
 from contextlib import nullcontext
+from decimal import Decimal
+from fractions import Fraction
 from functools import partial
 from io import StringIO
 from pathlib import Path
@@ -16,6 +18,55 @@ import pytest
 import click._termui_impl
 import click.utils
 from click._compat import WIN
+from click._utils import UNSET
+
+
+def test_unset_sentinel():
+    value = UNSET
+
+    assert value
+    assert value is UNSET
+    assert value == UNSET
+    assert repr(value) == "Sentinel.UNSET"
+    assert str(value) == "Sentinel.UNSET"
+    assert bool(value) is True
+
+    # Try all native Python values that can be falsy or truthy.
+    # See: https://docs.python.org/3/library/stdtypes.html#truth-value-testing
+    real_values = (
+        None,
+        True,
+        False,
+        0,
+        1,
+        0.0,
+        1.0,
+        0j,
+        1j,
+        Decimal(0),
+        Decimal(1),
+        Fraction(0, 1),
+        Fraction(1, 1),
+        "",
+        "a",
+        "UNSET",
+        "Sentinel.UNSET",
+        [1],
+        (1),
+        {1: "a"},
+        set(),
+        set([1]),
+        frozenset(),
+        frozenset([1]),
+        range(0),
+        range(1),
+    )
+
+    for real_value in real_values:
+        assert value != real_value
+        assert value is not real_value
+
+    assert value not in real_values
 
 
 def test_echo(runner):
@@ -112,7 +163,7 @@ def test_filename_formatting():
     assert click.format_filename(b"/x/foo.txt") == "/x/foo.txt"
     assert click.format_filename("/x/foo.txt") == "/x/foo.txt"
     assert click.format_filename("/x/foo.txt", shorten=True) == "foo.txt"
-    assert click.format_filename(b"/x/\xff.txt", shorten=True) == "�.txt"
+    assert click.format_filename("/x/\ufffd.txt", shorten=True) == "�.txt"
 
 
 def test_prompts(runner):
@@ -177,6 +228,19 @@ def test_prompts_abort(monkeypatch, capsys):
 
     out, err = capsys.readouterr()
     assert out == "Password:\ninterrupted\n"
+
+
+def test_prompts_eof(runner):
+    """If too few lines of input are given, prompt should exit, not hang."""
+
+    @click.command
+    def echo():
+        for _ in range(3):
+            click.echo(click.prompt("", type=int))
+
+    # only provide two lines of input for three prompts
+    result = runner.invoke(echo, input="1\n2\n")
+    assert result.exit_code == 1
 
 
 def _test_gen_func():
@@ -418,10 +482,22 @@ def test_echo_writing_to_standard_error(capfd, monkeypatch):
     assert err == ""
 
     emulate_input("asdlkj\n")
+    click.prompt("Prompt to stdin with no suffix", prompt_suffix="")
+    out, err = capfd.readouterr()
+    assert out == "Prompt to stdin with no suffix"
+    assert err == ""
+
+    emulate_input("asdlkj\n")
     click.prompt("Prompt to stderr", err=True)
     out, err = capfd.readouterr()
     assert out == " "
     assert err == "Prompt to stderr:"
+
+    emulate_input("asdlkj\n")
+    click.prompt("Prompt to stderr with no suffix", prompt_suffix="", err=True)
+    out, err = capfd.readouterr()
+    assert out == "x"
+    assert err == "Prompt to stderr with no suffi"
 
     emulate_input("y\n")
     click.confirm("Prompt to stdin")
@@ -430,10 +506,22 @@ def test_echo_writing_to_standard_error(capfd, monkeypatch):
     assert err == ""
 
     emulate_input("y\n")
+    click.confirm("Prompt to stdin with no suffix", prompt_suffix="")
+    out, err = capfd.readouterr()
+    assert out == "Prompt to stdin with no suffix [y/N]"
+    assert err == ""
+
+    emulate_input("y\n")
     click.confirm("Prompt to stderr", err=True)
     out, err = capfd.readouterr()
     assert out == " "
     assert err == "Prompt to stderr [y/N]:"
+
+    emulate_input("y\n")
+    click.confirm("Prompt to stderr with no suffix", prompt_suffix="", err=True)
+    out, err = capfd.readouterr()
+    assert out == "]"
+    assert err == "Prompt to stderr with no suffix [y/N"
 
     monkeypatch.setattr(click.termui, "isatty", lambda x: True)
     monkeypatch.setattr(click.termui, "getchar", lambda: " ")
@@ -616,7 +704,9 @@ def test_expand_args(monkeypatch):
     monkeypatch.setenv("CLICK_TEST", "hello")
     assert "hello" in click.utils._expand_args(["$CLICK_TEST"])
     assert "pyproject.toml" in click.utils._expand_args(["*.toml"])
-    assert os.path.join("docs", "conf.py") in click.utils._expand_args(["**/conf.py"])
+    assert os.path.join("tests", "conftest.py") in click.utils._expand_args(
+        ["**/conftest.py"]
+    )
     assert "*.not-found" in click.utils._expand_args(["*.not-found"])
     # a bad glob pattern, such as a pytest identifier, should return itself
     assert click.utils._expand_args(["test.py::test_bad"])[0] == "test.py::test_bad"

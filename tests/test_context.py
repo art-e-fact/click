@@ -1,5 +1,7 @@
 import logging
+from contextlib import AbstractContextManager
 from contextlib import contextmanager
+from types import TracebackType
 
 import pytest
 
@@ -177,6 +179,116 @@ def test_make_pass_meta_decorator_doc():
     assert "the 'value' key from :attr:`click.Context.meta`" in pass_value.__doc__
     pass_value = pass_meta_key("value", doc_description="the test value")
     assert "passes the test value" in pass_value.__doc__
+
+
+def test_hiding_of_unset_sentinel_in_callbacks():
+    """Fix: https://github.com/pallets/click/issues/3136"""
+
+    def inspect_other_params(ctx, param, value):
+        """A callback that inspects other parameters' values via the context."""
+        assert click.get_current_context() is ctx
+        click.echo(f"callback.my_arg: {ctx.params.get('my_arg')!r}")
+        click.echo(f"callback.my_opt: {ctx.params.get('my_opt')!r}")
+        click.echo(f"callback.my_callback: {ctx.params.get('my_callback')!r}")
+
+        click.echo(f"callback.param: {param!r}")
+        click.echo(f"callback.value: {value!r}")
+
+        return "hard-coded"
+
+    class ParameterInternalCheck(Option):
+        """An option that checks internal state during processing."""
+
+        def process_value(self, ctx, value):
+            """Check that UNSET values are hidden as None in ctx.params within the
+            callback, and then properly restored afterwards.
+            """
+            assert click.get_current_context() is ctx
+            click.echo(f"before_process.my_arg: {ctx.params.get('my_arg')!r}")
+            click.echo(f"before_process.my_opt: {ctx.params.get('my_opt')!r}")
+            click.echo(f"before_process.my_callback: {ctx.params.get('my_callback')!r}")
+
+            value = super().process_value(ctx, value)
+
+            assert click.get_current_context() is ctx
+            click.echo(f"after_process.my_arg: {ctx.params.get('my_arg')!r}")
+            click.echo(f"after_process.my_opt: {ctx.params.get('my_opt')!r}")
+            click.echo(f"after_process.my_callback: {ctx.params.get('my_callback')!r}")
+
+            return value
+
+    def change_other_params(ctx, param, value):
+        """A callback that modifies other parameters' values via the context."""
+        assert click.get_current_context() is ctx
+        click.echo(f"before_change.my_arg: {ctx.params.get('my_arg')!r}")
+        click.echo(f"before_change.my_opt: {ctx.params.get('my_opt')!r}")
+        click.echo(f"before_change.my_callback: {ctx.params.get('my_callback')!r}")
+
+        click.echo(f"before_change.param: {param!r}")
+        click.echo(f"before_change.value: {value!r}")
+
+        ctx.params["my_arg"] = "changed"
+        # Reset to None parameters that where not UNSET to see they are not forced back
+        # to UNSET.
+        ctx.params["my_callback"] = None
+
+        return value
+
+    @click.command
+    @click.argument("my-arg", required=False)
+    @click.option("--my-opt")
+    @click.option("--my-callback", callback=inspect_other_params)
+    @click.option("--check-internal", cls=ParameterInternalCheck)
+    @click.option(
+        "--modifying-callback", cls=ParameterInternalCheck, callback=change_other_params
+    )
+    @click.pass_context
+    def cli(ctx, my_arg, my_opt, my_callback, check_internal, modifying_callback):
+        click.echo(f"cli.my_arg: {my_arg!r}")
+        click.echo(f"cli.my_opt: {my_opt!r}")
+        click.echo(f"cli.my_callback: {my_callback!r}")
+        click.echo(f"cli.check_internal: {check_internal!r}")
+        click.echo(f"cli.modifying_callback: {modifying_callback!r}")
+
+    runner = click.testing.CliRunner()
+    result = runner.invoke(cli)
+
+    assert result.stdout.splitlines() == [
+        # Values of other parameters within the callback are None, not UNSET.
+        "callback.my_arg: None",
+        "callback.my_opt: None",
+        "callback.my_callback: None",
+        "callback.param: <Option my_callback>",
+        "callback.value: None",
+        # Previous UNSET values were not altered by the callback.
+        "before_process.my_arg: Sentinel.UNSET",
+        "before_process.my_opt: Sentinel.UNSET",
+        "before_process.my_callback: 'hard-coded'",
+        "after_process.my_arg: Sentinel.UNSET",
+        "after_process.my_opt: Sentinel.UNSET",
+        "after_process.my_callback: 'hard-coded'",
+        # Changes on other parameters within the callback are restored afterwards.
+        "before_process.my_arg: Sentinel.UNSET",
+        "before_process.my_opt: Sentinel.UNSET",
+        "before_process.my_callback: 'hard-coded'",
+        "before_change.my_arg: None",
+        "before_change.my_opt: None",
+        "before_change.my_callback: 'hard-coded'",
+        "before_change.param: <ParameterInternalCheck modifying_callback>",
+        "before_change.value: None",
+        "after_process.my_arg: 'changed'",
+        "after_process.my_opt: Sentinel.UNSET",
+        "after_process.my_callback: None",
+        # Unset values within the main command are UNSET, but hidden as None.
+        "cli.my_arg: 'changed'",
+        "cli.my_opt: None",
+        "cli.my_callback: None",
+        "cli.check_internal: None",
+        "cli.modifying_callback: None",
+    ]
+    assert not result.stderr
+    assert not result.exception
+    assert result.exit_code == 0
 
 
 def test_context_pushing():
@@ -421,6 +533,131 @@ def test_with_resource():
         assert rv[0] == 1
 
     assert rv == [0]
+
+
+def test_with_resource_exception() -> None:
+    class TestContext(AbstractContextManager[list[int]]):
+        _handle_exception: bool
+        _base_val: int
+        val: list[int]
+
+        def __init__(self, base_val: int = 1, *, handle_exception: bool = True) -> None:
+            self._handle_exception = handle_exception
+            self._base_val = base_val
+
+        def __enter__(self) -> list[int]:
+            self.val = [self._base_val]
+            return self.val
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> bool | None:
+            if not exc_type:
+                self.val[0] = self._base_val - 1
+                return None
+
+            self.val[0] = self._base_val + 1
+            return self._handle_exception
+
+    class TestException(Exception):
+        pass
+
+    ctx = click.Context(click.Command("test"))
+
+    base_val = 1
+
+    with ctx.scope():
+        rv = ctx.with_resource(TestContext(base_val=base_val))
+        assert rv[0] == base_val
+
+    assert rv == [base_val - 1]
+
+    with ctx.scope():
+        rv = ctx.with_resource(TestContext(base_val=base_val))
+        raise TestException()
+
+    assert rv == [base_val + 1]
+
+    with pytest.raises(TestException):
+        with ctx.scope():
+            rv = ctx.with_resource(
+                TestContext(base_val=base_val, handle_exception=False)
+            )
+            raise TestException()
+
+
+def test_with_resource_nested_exception() -> None:
+    class TestContext(AbstractContextManager[list[int]]):
+        _handle_exception: bool
+        _base_val: int
+        val: list[int]
+
+        def __init__(self, base_val: int = 1, *, handle_exception: bool = True) -> None:
+            self._handle_exception = handle_exception
+            self._base_val = base_val
+
+        def __enter__(self) -> list[int]:
+            self.val = [self._base_val]
+            return self.val
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> bool | None:
+            if not exc_type:
+                self.val[0] = self._base_val - 1
+                return None
+
+            self.val[0] = self._base_val + 1
+            return self._handle_exception
+
+    class TestException(Exception):
+        pass
+
+    ctx = click.Context(click.Command("test"))
+    base_val = 1
+    base_val_nested = 11
+
+    with ctx.scope():
+        rv = ctx.with_resource(TestContext(base_val=base_val))
+        rv_nested = ctx.with_resource(TestContext(base_val=base_val_nested))
+        assert rv[0] == base_val
+        assert rv_nested[0] == base_val_nested
+
+    assert rv == [base_val - 1]
+    assert rv_nested == [base_val_nested - 1]
+
+    with ctx.scope():
+        rv = ctx.with_resource(TestContext(base_val=base_val))
+        rv_nested = ctx.with_resource(TestContext(base_val=base_val_nested))
+        raise TestException()
+
+    # If one of the context "eats" the exceptions they will not be forwarded to other
+    # parts. This is due to how ExitStack unwinding works
+    assert rv_nested == [base_val_nested + 1]
+    assert rv == [base_val - 1]
+
+    with ctx.scope():
+        rv = ctx.with_resource(TestContext(base_val=base_val))
+        rv_nested = ctx.with_resource(
+            TestContext(base_val=base_val_nested, handle_exception=False)
+        )
+        raise TestException()
+
+    assert rv_nested == [base_val_nested + 1]
+    assert rv == [base_val + 1]
+
+    with pytest.raises(TestException):
+        rv = ctx.with_resource(TestContext(base_val=base_val, handle_exception=False))
+        rv_nested = ctx.with_resource(
+            TestContext(base_val=base_val_nested, handle_exception=False)
+        )
+        raise TestException()
 
 
 def test_make_pass_decorator_args(runner):
