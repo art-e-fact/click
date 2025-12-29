@@ -77,12 +77,12 @@ def _check_nested_chain(
         return
 
     if register:
-        message = _(
+        message = (
             f"It is not possible to add the group {cmd_name!r} to another"
             f" group {base_command.name!r} that is in chain mode."
         )
     else:
-        message = _(
+        message = (
             f"Found the group {cmd_name!r} as subcommand to another group "
             f" {base_command.name!r} that is in chain mode. This is not supported."
         )
@@ -1016,10 +1016,8 @@ class Command:
             for duplicate_opt in duplicate_opts:
                 warnings.warn(
                     (
-                        _(
-                            "The parameter {param} is used more than once. "
-                            "Remove its duplicate as parameters should be unique."
-                        ).format(param=duplicate_opt)
+                        f"The parameter {duplicate_opt} is used more than once. "
+                        "Remove its duplicate as parameters should be unique."
                     ),
                     stacklevel=3,
                 )
@@ -1109,9 +1107,9 @@ class Command:
 
         if self.deprecated:
             deprecated_message = (
-                _(f"(DEPRECATED: {self.deprecated})")
+                f"(DEPRECATED: {self.deprecated})"
                 if isinstance(self.deprecated, str)
-                else _("(DEPRECATED)")
+                else "(DEPRECATED)"
             )
             text = _("{text} {deprecated_message}").format(
                 text=text, deprecated_message=deprecated_message
@@ -1146,9 +1144,9 @@ class Command:
 
         if self.deprecated:
             deprecated_message = (
-                _(f"(DEPRECATED: {self.deprecated})")
+                f"(DEPRECATED: {self.deprecated})"
                 if isinstance(self.deprecated, str)
-                else _("(DEPRECATED)")
+                else "(DEPRECATED)"
             )
             text = _("{text} {deprecated_message}").format(
                 text=text, deprecated_message=deprecated_message
@@ -2179,22 +2177,15 @@ class Parameter:
         if __debug__:
             if self.type.is_composite and nargs != self.type.arity:
                 raise ValueError(
-                    _(
-                        "'nargs' must be {arity} (or None) for"
-                        " type {type!r}, but it was {nargs}."
-                    ).format(arity=self.type.arity, type=self.type, nargs=nargs)
+                    f"'nargs' must be {self.type.arity} (or None) for"
+                    f" type {self.type!r}, but it was {nargs}."
                 )
 
             if required and deprecated:
                 raise ValueError(
-                    _(
-                        "The {type_name} '{readable_name}' "
-                        "is deprecated and still required. A deprecated "
-                        "{type_name} cannot be required."
-                    ).format(
-                        type_name=self.param_type_name,
-                        readable_name=self.human_readable_name,
-                    )
+                    f"The {self.param_type_name} '{self.human_readable_name}' "
+                    "is deprecated and still required. A deprecated "
+                    f"{self.param_type_name} cannot be required."
                 )
 
     def to_info_dict(self) -> dict[str, t.Any]:
@@ -2755,9 +2746,9 @@ class Option(Parameter):
 
         if deprecated:
             deprecated_message = (
-                _(f"(DEPRECATED: {deprecated})")
+                f"(DEPRECATED: {deprecated})"
                 if isinstance(deprecated, str)
-                else _("(DEPRECATED)")
+                else "(DEPRECATED)"
             )
             help = help + deprecated_message if help is not None else deprecated_message
 
